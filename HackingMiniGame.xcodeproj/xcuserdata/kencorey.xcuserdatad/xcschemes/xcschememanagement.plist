@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SchemeUserState</key>
+	<dict>
+		<key>HackingMiniGame.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>0</integer>
+		</dict>
+		<key>HackingMiniGameBundle.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>1</integer>
+		</dict>
+		<key>HackingMiniGameTestBundle.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>3</integer>
+		</dict>
+		<key>HackingMiniGameTester.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>BC97E38E1D421E0B00BB0937</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>BC97E39E1D4225CC00BB0937</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>BC97E3B51D422C2700BB0937</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>BC97E3C51D422D8E00BB0937</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+	</dict>
+</dict>
+</plist>
