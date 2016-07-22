@@ -95,7 +95,7 @@ class MainApp {
     
         for word in wordList {
             
-            print("\(word)\n")
+            print("\(word.uppercaseString)")
         }
     }
     
@@ -112,7 +112,7 @@ class MainApp {
         
         while (difficultyInput != "") {
             
-            print("Difficulty (1-5)? ")
+            print("Difficulty (1-5)? ", terminator:"")
             difficultyInput = readLine(stripNewline: true)!
             if let difficultyInt = Int(difficultyInput) {
                 
@@ -136,8 +136,9 @@ class MainApp {
                 
                 while (guesses >= 0) {
                     
-                    print("Guess (\(guesses) left)? ")
+                    print("Guess (\(guesses) left)? ", terminator:"")
                     wordInput = readLine(stripNewline: true)!
+                    wordInput = wordInput.lowercaseString
                     
                     wordScore = scoreGuess(wordInput, password: password)
                     
