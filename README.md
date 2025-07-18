@@ -1,55 +1,91 @@
-Hacking Mini-Game
-=================
+# Zen Match 3 - Peaceful Puzzle Game
 
-An OSX Fallout-3-a-like command-line minigame
+A vibrant, relaxing match 3 game designed for zen-like gameplay and whiling away time in a peaceful manner.
 
-This game is based on the spec at:
-https://www.reddit.com/r/dailyprogrammer/comments/263dp1/5212014_challenge_163_intermediate_fallouts/
+## Features
 
----
-```
-The popular video games Fallout 3 and Fallout: New Vegas has a computer hacking mini game.
-This game requires the player to correctly guess a password from a list of same length words. Your challenge is to implement this game yourself.
-The game works like the classic game of Mastermind The player has only 4 guesses and on each incorrect guess the computer will indicate how many letter positions are correct.
-For example, if the password is MIND and the player guesses MEND, the game will indicate that 3 out of 4 positions are correct (M_ND). If the password is COMPUTE and the player guesses PLAYFUL, the game will report 0/7. While some of the letters match, they're in the wrong position.
-Ask the player for a difficulty (very easy, easy, average, hard, very hard), then present the player with 5 to 15 words of the same length. The length can be 4 to 15 letters. More words and letters make for a harder puzzle. The player then has 4 guesses, and on each incorrect guess indicate the number of correct positions.
-Here's an example game:
-Difficulty (1-5)? 3
-SCORPION
-FLOGGING
-CROPPERS
-MIGRAINE
-FOOTNOTE
-REFINERY
-VAULTING
-VICARAGE
-PROTRACT
-DESCENTS
-Guess (4 left)? migraine
-0/8 correct
-Guess (3 left)? protract
-2/8 correct
-Guess (2 left)? croppers
-8/8 correct
-You win!
-You can draw words from our favorite dictionary file: enable1.txt . Your program should completely ignore case when making the position checks.
-```
-----------------------------------------
+### 🎮 Core Gameplay
+- **8x8 Grid**: Classic match 3 mechanics with smooth animations
+- **Progressive Unlocking**: Start with 3 block types, unlock more as you progress
+- **Zen Mode**: Focus on relaxation rather than time pressure or lives
+- **Cascade Effects**: Matches create satisfying chain reactions
 
-#Limitations
+### 🌟 Block Types (6 Special Kinds)
+1. **💎 Crystal Blocks** (Available from start)
+2. **🌸 Flower Blocks** (Available from start)  
+3. **⭐ Star Blocks** (Available from start)
+4. **🌙 Moon Blocks** (Unlocked at 100 matches)
+5. **☀️ Sun Blocks** (Unlocked at 200 matches)
+6. **💖 Heart Blocks** (Unlocked at 300 matches)
 
-1. The whole array of strings to use are brought into an array of Strings.  1.5Mb worth.  A Trie would save much memory potentially.  Memory could run out.
+### 🎵 Audio Experience
+- **Background Music**: Peaceful ambient melodies using Web Audio API
+- **Sound Effects**: Satisfying audio feedback for matches, selections, and level ups
+- **Audio Controls**: Toggle music and sound effects independently
 
-2. I use brute force to iterate through the array and find strings. Collisions are checked for, but not the case where there aren't enough words of the required length.
+### 📱 Mobile Optimized
+- **iPhone Focused**: Optimized specifically for iPhone with responsive design
+- **Touch Controls**: Smooth touch interactions with haptic-like feedback
+- **Landscape Support**: Adapts to device orientation
+- **No Zoom Issues**: Prevents accidental zooming during gameplay
 
-3. This isn't terribly extendable, as the text file is bundled with the app.  Fine for testing, but hardly bullet-proof...and it doesn't allow for later expansion, other languages, etc.
+### ✨ Visual Effects
+- **Particle Systems**: Colorful particles burst from matched blocks
+- **Smooth Animations**: Satisfying visual feedback for all interactions
+- **Gradient Backgrounds**: Beautiful color schemes for a zen atmosphere
+- **Score Popups**: Visual feedback for scoring
 
-4. Almost no error checking is done on the input.  If the word "blah" is in the list, but you enter "blat", no effort is made to ensure you're using a word that's in the list.  (In Fallout, you can *only* choose words on the screen, so this isn't an issue.)
+## How to Play
 
-5. The tests only test before the runGame() loop.  They do not test the runGame loop itself.
+1. **Select a Block**: Tap any block to select it (it will glow)
+2. **Swap with Adjacent**: Tap an adjacent block to swap positions
+3. **Make Matches**: Create lines of 3 or more identical blocks
+4. **Watch Magic Happen**: Matched blocks disappear with particle effects
+5. **Gravity Effect**: Blocks fall down to fill empty spaces
+6. **Chain Reactions**: New matches can form automatically
+7. **Unlock New Blocks**: Reach match milestones to unlock new block types
 
-6. The runGame loop is too long.
+## Scoring System
 
-7. The runGame has pyramided.  It has 7 levels of indention at its core.
+- **Basic Match**: 10 points per block
+- **Bonus Points**: Extra points for matches longer than 3 blocks
+- **Cascade Bonus**: Additional points for chain reactions
+- **Level Progression**: Level increases every 1000 points
 
-8. The runGame loop wasn't TDD'd into place.
+## Progressive Unlocking
+
+- **Start**: 3 block types (Crystal, Flower, Star)
+- **100 Matches**: Moon blocks unlock 🌙
+- **200 Matches**: Sun blocks unlock ☀️
+- **300 Matches**: Heart blocks unlock 💖
+
+## Controls
+
+- **⏸️ Pause**: Pause/resume the game
+- **🎵 Music**: Toggle background music
+- **🔊 Sound**: Toggle sound effects
+
+## Technical Features
+
+- **Web Audio API**: High-quality procedural audio
+- **CSS Grid**: Responsive layout system
+- **Touch Events**: Optimized for mobile devices
+- **Particle Effects**: Dynamic visual feedback
+- **Progressive Enhancement**: Works on older browsers
+
+## Getting Started
+
+Simply open `index.html` in a web browser on your iPhone or any modern mobile device. The game will automatically start and adapt to your screen size.
+
+## Zen Philosophy
+
+This game is designed for relaxation and mindfulness. There are no time limits, no lives to lose, and no pressure. Just enjoy the satisfying mechanics, beautiful visuals, and peaceful audio while you create colorful matches and watch the blocks cascade in harmony.
+
+Perfect for:
+- Meditation breaks
+- Stress relief
+- Mindful gaming
+- Passing time peacefully
+- Focus and concentration practice
+
+Enjoy your zen journey! 🧘‍♀️✨

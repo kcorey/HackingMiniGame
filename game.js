@@ -1,0 +1,607 @@
+class ZenMatch3 {
+    constructor() {
+        this.boardSize = 8;
+        this.board = [];
+        this.selectedTile = null;
+        this.score = 0;
+        this.matches = 0;
+        this.level = 1;
+        this.musicEnabled = true;
+        this.soundEnabled = true;
+        this.isPaused = false;
+        
+        // Block types - unlock progressively
+        this.blockTypes = [
+            { name: 'crystal', class: 'block-crystal', unlocked: true },
+            { name: 'flower', class: 'block-flower', unlocked: true },
+            { name: 'star', class: 'block-star', unlocked: true },
+            { name: 'moon', class: 'block-moon', unlocked: false },
+            { name: 'sun', class: 'block-sun', unlocked: false },
+            { name: 'heart', class: 'block-heart', unlocked: false }
+        ];
+        
+        this.audioContext = null;
+        this.backgroundMusic = null;
+        
+        this.initializeGame();
+        this.setupEventListeners();
+        this.createAudioContext();
+        this.startBackgroundMusic();
+    }
+    
+    initializeGame() {
+        this.createBoard();
+        this.fillBoard();
+        this.renderBoard();
+        this.updateUI();
+    }
+    
+    createBoard() {
+        this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
+    }
+    
+    getAvailableBlockTypes() {
+        return this.blockTypes.filter(block => block.unlocked);
+    }
+    
+    fillBoard() {
+        const availableTypes = this.getAvailableBlockTypes();
+        
+        for (let row = 0; row < this.boardSize; row++) {
+            for (let col = 0; col < this.boardSize; col++) {
+                if (this.board[row][col] === null) {
+                    let blockType;
+                    let attempts = 0;
+                    
+                    do {
+                        blockType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+                        attempts++;
+                    } while (attempts < 10 && this.wouldCreateMatch(row, col, blockType));
+                    
+                    this.board[row][col] = blockType;
+                }
+            }
+        }
+    }
+    
+    wouldCreateMatch(row, col, blockType) {
+        // Check horizontal match
+        let horizontalCount = 1;
+        // Check left
+        for (let c = col - 1; c >= 0; c--) {
+            if (this.board[row][c] && this.board[row][c].name === blockType.name) {
+                horizontalCount++;
+            } else {
+                break;
+            }
+        }
+        // Check right
+        for (let c = col + 1; c < this.boardSize; c++) {
+            if (this.board[row][c] && this.board[row][c].name === blockType.name) {
+                horizontalCount++;
+            } else {
+                break;
+            }
+        }
+        
+        // Check vertical match
+        let verticalCount = 1;
+        // Check up
+        for (let r = row - 1; r >= 0; r--) {
+            if (this.board[r][col] && this.board[r][col].name === blockType.name) {
+                verticalCount++;
+            } else {
+                break;
+            }
+        }
+        // Check down
+        for (let r = row + 1; r < this.boardSize; r++) {
+            if (this.board[r][col] && this.board[r][col].name === blockType.name) {
+                verticalCount++;
+            } else {
+                break;
+            }
+        }
+        
+        return horizontalCount >= 3 || verticalCount >= 3;
+    }
+    
+    renderBoard() {
+        const gameBoard = document.getElementById('game-board');
+        gameBoard.innerHTML = '';
+        
+        for (let row = 0; row < this.boardSize; row++) {
+            for (let col = 0; col < this.boardSize; col++) {
+                const tile = document.createElement('div');
+                tile.className = `tile ${this.board[row][col].class}`;
+                tile.dataset.row = row;
+                tile.dataset.col = col;
+                
+                tile.addEventListener('click', (e) => this.handleTileClick(e));
+                tile.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.handleTileClick(e);
+                });
+                
+                gameBoard.appendChild(tile);
+            }
+        }
+    }
+    
+    handleTileClick(event) {
+        if (this.isPaused) return;
+        
+        const tile = event.target;
+        const row = parseInt(tile.dataset.row);
+        const col = parseInt(tile.dataset.col);
+        
+        if (this.selectedTile === null) {
+            // First tile selection
+            this.selectedTile = { row, col };
+            tile.classList.add('selected');
+            this.playSound('select');
+        } else {
+            // Second tile selection
+            const prevTile = document.querySelector('.tile.selected');
+            if (prevTile) prevTile.classList.remove('selected');
+            
+            if (this.selectedTile.row === row && this.selectedTile.col === col) {
+                // Deselect same tile
+                this.selectedTile = null;
+                return;
+            }
+            
+            if (this.isAdjacent(this.selectedTile, { row, col })) {
+                this.swapTiles(this.selectedTile, { row, col });
+            }
+            
+            this.selectedTile = null;
+        }
+    }
+    
+    isAdjacent(tile1, tile2) {
+        const rowDiff = Math.abs(tile1.row - tile2.row);
+        const colDiff = Math.abs(tile1.col - tile2.col);
+        return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+    }
+    
+    swapTiles(tile1, tile2) {
+        // Swap tiles in board
+        const temp = this.board[tile1.row][tile1.col];
+        this.board[tile1.row][tile1.col] = this.board[tile2.row][tile2.col];
+        this.board[tile2.row][tile2.col] = temp;
+        
+        // Check for matches
+        const matches = this.findMatches();
+        
+        if (matches.length > 0) {
+            this.playSound('match');
+            this.processMatches(matches);
+        } else {
+            // Swap back if no matches
+            this.board[tile2.row][tile2.col] = this.board[tile1.row][tile1.col];
+            this.board[tile1.row][tile1.col] = temp;
+            this.playSound('invalid');
+        }
+        
+        this.renderBoard();
+    }
+    
+    findMatches() {
+        const matches = [];
+        const visited = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(false));
+        
+        // Find horizontal matches
+        for (let row = 0; row < this.boardSize; row++) {
+            for (let col = 0; col < this.boardSize - 2; col++) {
+                const currentType = this.board[row][col].name;
+                let matchLength = 1;
+                
+                for (let c = col + 1; c < this.boardSize; c++) {
+                    if (this.board[row][c].name === currentType) {
+                        matchLength++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (matchLength >= 3) {
+                    for (let c = col; c < col + matchLength; c++) {
+                        if (!visited[row][c]) {
+                            matches.push({ row, col: c });
+                            visited[row][c] = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Find vertical matches
+        for (let col = 0; col < this.boardSize; col++) {
+            for (let row = 0; row < this.boardSize - 2; row++) {
+                const currentType = this.board[row][col].name;
+                let matchLength = 1;
+                
+                for (let r = row + 1; r < this.boardSize; r++) {
+                    if (this.board[r][col].name === currentType) {
+                        matchLength++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (matchLength >= 3) {
+                    for (let r = row; r < row + matchLength; r++) {
+                        if (!visited[r][col]) {
+                            matches.push({ row: r, col });
+                            visited[r][col] = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return matches;
+    }
+    
+    processMatches(matches) {
+        // Add matching animation
+        matches.forEach(match => {
+            const tile = document.querySelector(`[data-row="${match.row}"][data-col="${match.col}"]`);
+            if (tile) {
+                tile.classList.add('matching');
+                this.createParticles(tile);
+            }
+        });
+        
+        // Calculate score
+        const matchScore = matches.length * 10 + (matches.length > 3 ? (matches.length - 3) * 5 : 0);
+        this.score += matchScore;
+        this.matches += matches.length;
+        
+        // Show score popup
+        this.showScorePopup(matchScore);
+        
+        // Remove matched tiles after animation
+        setTimeout(() => {
+            matches.forEach(match => {
+                this.board[match.row][match.col] = null;
+            });
+            
+            this.applyGravity();
+            this.fillEmptySpaces();
+            this.renderBoard();
+            
+            // Check for more matches (cascade effect)
+            setTimeout(() => {
+                const newMatches = this.findMatches();
+                if (newMatches.length > 0) {
+                    this.processMatches(newMatches);
+                } else {
+                    this.checkLevelUp();
+                }
+            }, 300);
+        }, 600);
+        
+        this.updateUI();
+    }
+    
+    applyGravity() {
+        for (let col = 0; col < this.boardSize; col++) {
+            // Collect non-null blocks from bottom to top
+            const column = [];
+            for (let row = this.boardSize - 1; row >= 0; row--) {
+                if (this.board[row][col] !== null) {
+                    column.push(this.board[row][col]);
+                }
+            }
+            
+            // Clear column
+            for (let row = 0; row < this.boardSize; row++) {
+                this.board[row][col] = null;
+            }
+            
+            // Place blocks from bottom
+            for (let i = 0; i < column.length; i++) {
+                this.board[this.boardSize - 1 - i][col] = column[i];
+            }
+        }
+    }
+    
+    fillEmptySpaces() {
+        const availableTypes = this.getAvailableBlockTypes();
+        
+        for (let col = 0; col < this.boardSize; col++) {
+            for (let row = 0; row < this.boardSize; row++) {
+                if (this.board[row][col] === null) {
+                    const blockType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+                    this.board[row][col] = blockType;
+                }
+            }
+        }
+    }
+    
+    checkLevelUp() {
+        let newBlocksUnlocked = false;
+        
+        // Unlock moon blocks at 100 matches
+        if (this.matches >= 100 && !this.blockTypes[3].unlocked) {
+            this.blockTypes[3].unlocked = true;
+            newBlocksUnlocked = true;
+            this.showUnlockMessage('🌙 Moon blocks unlocked!');
+        }
+        
+        // Unlock sun blocks at 200 matches
+        if (this.matches >= 200 && !this.blockTypes[4].unlocked) {
+            this.blockTypes[4].unlocked = true;
+            newBlocksUnlocked = true;
+            this.showUnlockMessage('☀️ Sun blocks unlocked!');
+        }
+        
+        // Unlock heart blocks at 300 matches
+        if (this.matches >= 300 && !this.blockTypes[5].unlocked) {
+            this.blockTypes[5].unlocked = true;
+            newBlocksUnlocked = true;
+            this.showUnlockMessage('💖 Heart blocks unlocked!');
+        }
+        
+        if (newBlocksUnlocked) {
+            this.playSound('levelup');
+            // Gradually introduce new blocks
+            setTimeout(() => {
+                this.addNewBlocksToBoard();
+            }, 2000);
+        }
+        
+        // Update level based on score
+        const newLevel = Math.floor(this.score / 1000) + 1;
+        if (newLevel > this.level) {
+            this.level = newLevel;
+            this.playSound('levelup');
+        }
+    }
+    
+    addNewBlocksToBoard() {
+        const availableTypes = this.getAvailableBlockTypes();
+        const newType = availableTypes[availableTypes.length - 1];
+        
+        // Replace some random blocks with the new type
+        const replacements = Math.min(8, Math.floor(this.boardSize * this.boardSize * 0.1));
+        for (let i = 0; i < replacements; i++) {
+            const row = Math.floor(Math.random() * this.boardSize);
+            const col = Math.floor(Math.random() * this.boardSize);
+            this.board[row][col] = newType;
+        }
+        
+        this.renderBoard();
+    }
+    
+    showUnlockMessage(message) {
+        const popup = document.createElement('div');
+        popup.className = 'score-popup';
+        popup.textContent = message;
+        popup.style.left = '50%';
+        popup.style.top = '30%';
+        popup.style.transform = 'translateX(-50%)';
+        popup.style.fontSize = '1.5em';
+        popup.style.color = '#ffd700';
+        
+        document.body.appendChild(popup);
+        
+        setTimeout(() => {
+            popup.remove();
+        }, 2000);
+    }
+    
+    showScorePopup(points) {
+        const gameBoard = document.getElementById('game-board');
+        const rect = gameBoard.getBoundingClientRect();
+        
+        const popup = document.createElement('div');
+        popup.className = 'score-popup';
+        popup.textContent = `+${points}`;
+        popup.style.left = (rect.left + rect.width / 2) + 'px';
+        popup.style.top = (rect.top + rect.height / 2) + 'px';
+        
+        document.body.appendChild(popup);
+        
+        setTimeout(() => {
+            popup.remove();
+        }, 1000);
+    }
+    
+    createParticles(tile) {
+        const rect = tile.getBoundingClientRect();
+        const colors = ['#ff6b6b', '#4ecdc4', '#feca57', '#ff9ff3', '#a8edea'];
+        
+        for (let i = 0; i < 8; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = (rect.left + rect.width / 2) + 'px';
+            particle.style.top = (rect.top + rect.height / 2) + 'px';
+            particle.style.width = '6px';
+            particle.style.height = '6px';
+            particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.transform = `translate(${(Math.random() - 0.5) * 100}px, ${(Math.random() - 0.5) * 100}px)`;
+            
+            document.getElementById('particle-container').appendChild(particle);
+            
+            setTimeout(() => {
+                particle.remove();
+            }, 2000);
+        }
+    }
+    
+    updateUI() {
+        document.getElementById('score').textContent = this.score;
+        document.getElementById('matches').textContent = this.matches;
+        document.getElementById('level').textContent = this.level;
+        
+        // Update progress bar
+        let nextMilestone = 100;
+        if (this.matches >= 200) nextMilestone = 300;
+        else if (this.matches >= 100) nextMilestone = 200;
+        
+        const progress = (this.matches % 100) / 100 * 100;
+        const matchesNeeded = nextMilestone - this.matches;
+        
+        document.getElementById('progress-fill').style.width = progress + '%';
+        document.getElementById('matches-needed').textContent = Math.max(0, matchesNeeded);
+        
+        if (this.matches >= 300) {
+            document.querySelector('.progress-label').textContent = 'All blocks unlocked!';
+            document.getElementById('progress-fill').style.width = '100%';
+        }
+    }
+    
+    setupEventListeners() {
+        document.getElementById('pause-btn').addEventListener('click', () => {
+            this.isPaused = !this.isPaused;
+            document.getElementById('pause-btn').textContent = this.isPaused ? '▶️' : '⏸️';
+        });
+        
+        document.getElementById('music-btn').addEventListener('click', () => {
+            this.musicEnabled = !this.musicEnabled;
+            document.getElementById('music-btn').classList.toggle('muted', !this.musicEnabled);
+            
+            if (this.backgroundMusic) {
+                if (this.musicEnabled) {
+                    this.backgroundMusic.start();
+                } else {
+                    this.backgroundMusic.stop();
+                }
+            }
+        });
+        
+        document.getElementById('sound-btn').addEventListener('click', () => {
+            this.soundEnabled = !this.soundEnabled;
+            document.getElementById('sound-btn').classList.toggle('muted', !this.soundEnabled);
+        });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    }
+    
+    createAudioContext() {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            console.log('Web Audio API not supported');
+        }
+    }
+    
+    playSound(type) {
+        if (!this.soundEnabled || !this.audioContext) return;
+        
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        let frequency, duration;
+        
+        switch (type) {
+            case 'match':
+                frequency = 523.25; // C5
+                duration = 0.3;
+                gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                break;
+            case 'select':
+                frequency = 440; // A4
+                duration = 0.1;
+                gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                break;
+            case 'invalid':
+                frequency = 220; // A3
+                duration = 0.2;
+                gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                break;
+            case 'levelup':
+                // Play a chord
+                this.playChord([523.25, 659.25, 783.99], 0.8); // C5, E5, G5
+                return;
+        }
+        
+        oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+        oscillator.type = 'sine';
+        oscillator.start();
+        oscillator.stop(this.audioContext.currentTime + duration);
+    }
+    
+    playChord(frequencies, duration) {
+        frequencies.forEach((freq, index) => {
+            setTimeout(() => {
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                
+                oscillator.start();
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }, index * 100);
+        });
+    }
+    
+    startBackgroundMusic() {
+        if (!this.audioContext || !this.musicEnabled) return;
+        
+        // Simple ambient background music
+        const playNote = (frequency, startTime, duration) => {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, startTime);
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.05, startTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+            
+            oscillator.start(startTime);
+            oscillator.stop(startTime + duration);
+        };
+        
+        // Peaceful melody loop
+        const melody = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]; // C major scale
+        
+        const playMelody = () => {
+            if (!this.musicEnabled) return;
+            
+            const now = this.audioContext.currentTime;
+            melody.forEach((note, index) => {
+                playNote(note, now + index * 0.5, 0.8);
+            });
+            
+            setTimeout(playMelody, 8000); // Repeat every 8 seconds
+        };
+        
+        // Start after a short delay
+        setTimeout(playMelody, 1000);
+    }
+}
+
+// Initialize game when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new ZenMatch3();
+});
