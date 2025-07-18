@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Zen Match 3 - Peaceful Puzzle</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <header class="game-header">
+            <h1 class="game-title">Zen Match 3</h1>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">Score</span>
+                    <span id="score" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Matches</span>
+                    <span id="matches" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Level</span>
+                    <span id="level" class="stat-value">1</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="game-board-container">
+            <div id="game-board" class="game-board"></div>
+        </div>
+
+        <div class="controls">
+            <button id="pause-btn" class="control-btn">⏸️</button>
+            <button id="music-btn" class="control-btn">🎵</button>
+            <button id="sound-btn" class="control-btn">🔊</button>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-label">Next unlock in <span id="matches-needed">100</span> matches</div>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="particle-container" class="particle-container"></div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
