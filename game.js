@@ -31,11 +31,22 @@ class ZenMatch3 {
         
         this.audioContext = null;
         this.backgroundMusic = null;
+        this.currentMusicIndex = 0;
+        this.musicTracks = [
+            'music/Stellar Drift.mp3',
+            'music/Stellar Drift (1).mp3',
+            'music/Stellar Drift (2).mp3',
+            'music/Stellar Drift (3).mp3',
+            'music/Stellar Drift (4).mp3',
+            'music/Stellar Drift (5).mp3',
+            'music/Celestial Cascade.mp3',
+            'music/Celestial Cascade (1).mp3'
+        ];
         
         this.initializeGame();
         this.setupEventListeners();
         this.createAudioContext();
-        this.startBackgroundMusic();
+        // Don't start music automatically - wait for user interaction
     }
     
     initializeGame() {
@@ -223,27 +234,186 @@ class ZenMatch3 {
     swapTiles(tile1, tile2) {
         const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
         
-        // Swap tiles in board
-        const temp = currentBoard[tile1.row][tile1.col];
-        currentBoard[tile1.row][tile1.col] = currentBoard[tile2.row][tile2.col];
-        currentBoard[tile2.row][tile2.col] = temp;
+        // Store original positions and blocks
+        const block1 = currentBoard[tile1.row][tile1.col];
+        const block2 = currentBoard[tile2.row][tile2.col];
         
-        // Check for matches
-        const matches = this.findMatches();
+        // Animation parameters
+        const animationDuration = 500; // 0.5 seconds
+        const delay = 200; // 0.2 seconds delay
+        const startTime = Date.now();
         
-        if (matches.length > 0) {
-            this.playSound('match');
-            this.processMatches(matches);
-        } else {
-            // Swap back if no matches
-            const temp = currentBoard[tile1.row][tile1.col];
-            currentBoard[tile1.row][tile1.col] = currentBoard[tile2.row][tile2.col];
-            currentBoard[tile2.row][tile2.col] = temp;
+        // Disable input during animation
+        this.isAnimating = true;
+        
+        // Animate the swap
+        const animateSwap = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / animationDuration, 1);
             
-            this.playSound('invalid');
-        }
+            // Ease-in-out function
+            const easeProgress = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            // Calculate intermediate positions
+            const x1 = tile1.col * this.tileSize + this.tileSize / 2;
+            const y1 = tile1.row * this.tileSize + this.tileSize / 2;
+            const x2 = tile2.col * this.tileSize + this.tileSize / 2;
+            const y2 = tile2.row * this.tileSize + this.tileSize / 2;
+            
+            // Interpolate positions
+            const currentX1 = x1 + (x2 - x1) * easeProgress;
+            const currentY1 = y1 + (y2 - y1) * easeProgress;
+            const currentX2 = x2 + (x1 - x2) * easeProgress;
+            const currentY2 = y2 + (y1 - y2) * easeProgress;
+            
+            // Clear and redraw board
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Draw background
+            this.ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Draw all blocks except the swapping ones
+            for (let row = 0; row < this.boardSize; row++) {
+                for (let col = 0; col < this.boardSize; col++) {
+                    if (currentBoard[row][col] !== null && 
+                        !((row === tile1.row && col === tile1.col) || 
+                          (row === tile2.row && col === tile2.col))) {
+                        this.drawBlock(row, col, currentBoard[row][col]);
+                    }
+                }
+            }
+            
+            // Draw the swapping blocks at their animated positions
+            this.drawBlockAtPosition(currentX1, currentY1, block1);
+            this.drawBlockAtPosition(currentX2, currentY2, block2);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateSwap);
+            } else {
+                // Animation complete - perform the actual swap
+                currentBoard[tile1.row][tile1.col] = block2;
+                currentBoard[tile2.row][tile2.col] = block1;
+                
+                // Check for matches after a small delay
+                setTimeout(() => {
+                    const matches = this.findMatches();
+                    
+                    if (matches.length > 0) {
+                        this.playSound('match');
+                        this.processMatches(matches);
+                    } else {
+                        // Animate swap back
+                        this.animateSwapBack(tile1, tile2, block1, block2);
+                    }
+                    
+                    this.isAnimating = false;
+                }, delay);
+            }
+        };
         
-        this.drawBoard();
+        // Start animation after delay
+        setTimeout(animateSwap, delay);
+    }
+    
+    animateSwapBack(tile1, tile2, block1, block2) {
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
+        
+        // Animation parameters for swap back
+        const animationDuration = 500; // 0.5 seconds
+        const startTime = Date.now();
+        
+        // Animate the swap back
+        const animateSwapBack = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / animationDuration, 1);
+            
+            // Ease-in-out function
+            const easeProgress = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            // Calculate intermediate positions (reverse of original swap)
+            const x1 = tile1.col * this.tileSize + this.tileSize / 2;
+            const y1 = tile1.row * this.tileSize + this.tileSize / 2;
+            const x2 = tile2.col * this.tileSize + this.tileSize / 2;
+            const y2 = tile2.row * this.tileSize + this.tileSize / 2;
+            
+            // Interpolate positions (blocks moving back to original positions)
+            const currentX1 = x2 + (x1 - x2) * easeProgress;
+            const currentY1 = y2 + (y1 - y2) * easeProgress;
+            const currentX2 = x1 + (x2 - x1) * easeProgress;
+            const currentY2 = y1 + (y2 - y1) * easeProgress;
+            
+            // Clear and redraw board
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Draw background
+            this.ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Draw all blocks except the swapping ones
+            for (let row = 0; row < this.boardSize; row++) {
+                for (let col = 0; col < this.boardSize; col++) {
+                    if (currentBoard[row][col] !== null && 
+                        !((row === tile1.row && col === tile1.col) || 
+                          (row === tile2.row && col === tile2.col))) {
+                        this.drawBlock(row, col, currentBoard[row][col]);
+                    }
+                }
+            }
+            
+            // Draw the swapping blocks at their animated positions
+            this.drawBlockAtPosition(currentX1, currentY1, block1);
+            this.drawBlockAtPosition(currentX2, currentY2, block2);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateSwapBack);
+            } else {
+                // Animation complete - perform the actual swap back
+                currentBoard[tile1.row][tile1.col] = block1;
+                currentBoard[tile2.row][tile2.col] = block2;
+                
+                this.playSound('invalid');
+                this.drawBoard();
+            }
+        };
+        
+        // Start the swap back animation
+        animateSwapBack();
+    }
+    
+    drawBlockAtPosition(x, y, blockType) {
+        const size = this.tileSize - 4;
+        const halfSize = size / 2;
+        
+        // Draw block background
+        this.ctx.fillStyle = blockType.color;
+        this.ctx.fillRect(x - halfSize, y - halfSize, size, size);
+        
+        // Draw block border
+        this.ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x - halfSize, y - halfSize, size, size);
+        
+        // Draw block symbol
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '20px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        const symbols = {
+            'crystal': '💎',
+            'flower': '🌸',
+            'star': '⭐',
+            'moon': '🌙',
+            'sun': '☀️',
+            'heart': '💖'
+        };
+        
+        this.ctx.fillText(symbols[blockType.name], x, y);
     }
     
     findMatches() {
@@ -664,15 +834,14 @@ class ZenMatch3 {
             particle.style.left = pageX + 'px';
             particle.style.top = pageY + 'px';
             
-            // Random movement - particles rise slightly but never more than 0.8 block size
-            const maxRise = this.tileSize * 0.8 * 2; // Double the rise distance
-            const riseDistance = Math.random() * maxRise;
-            const horizontalDistance = (Math.random() - 0.5) * this.tileSize * 1.2; // Double the horizontal spread
+            // Random movement - particles burst in all directions
+            const maxDistance = this.tileSize * 1.6; // Maximum distance for any direction
+            const distance = Math.random() * maxDistance + 10; // Minimum 10px distance
             
-            // Random angle for the rise direction
+            // Random angle for full 360-degree burst
             const angle = Math.random() * Math.PI * 2;
-            const deltaX = Math.cos(angle) * horizontalDistance;
-            const deltaY = -riseDistance; // Negative for upward movement
+            const deltaX = Math.cos(angle) * distance;
+            const deltaY = Math.sin(angle) * distance; // Can go up, down, left, right
             
             // Create unique animation name for each particle
             const animationName = `explosionParticle_${Date.now()}_${i}`;
@@ -762,10 +931,12 @@ class ZenMatch3 {
             
             if (this.backgroundMusic) {
                 if (this.musicEnabled) {
-                    this.backgroundMusic.start();
+                    this.backgroundMusic.play();
                 } else {
-                    this.backgroundMusic.stop();
+                    this.backgroundMusic.pause();
                 }
+            } else if (this.musicEnabled) {
+                this.startBackgroundMusic();
             }
         });
         
@@ -790,6 +961,11 @@ class ZenMatch3 {
     
     handleCanvasClick(event) {
         if (this.isPaused || this.isAnimating) return;
+        
+        // Start music on first user interaction
+        if (this.musicEnabled && !this.backgroundMusic) {
+            this.startBackgroundMusic();
+        }
         
         const rect = this.canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
@@ -874,41 +1050,43 @@ class ZenMatch3 {
     }
     
     startBackgroundMusic() {
-        if (!this.audioContext || !this.musicEnabled) return;
+        if (!this.musicEnabled) return;
         
-        // Simple ambient background music
-        const playNote = (frequency, startTime, duration) => {
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(frequency, startTime);
-            oscillator.type = 'sine';
-            gainNode.gain.setValueAtTime(0.05, startTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-            
-            oscillator.start(startTime);
-            oscillator.stop(startTime + duration);
-        };
+        this.loadAndPlayMusic();
+    }
+    
+    loadAndPlayMusic() {
+        if (!this.musicEnabled) return;
         
-        // Peaceful melody loop
-        const melody = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]; // C major scale
+        if (this.currentMusicIndex >= this.musicTracks.length) {
+            this.currentMusicIndex = 0; // Loop back to start
+        }
         
-        const playMelody = () => {
-            if (!this.musicEnabled) return;
-            
-            const now = this.audioContext.currentTime;
-            melody.forEach((note, index) => {
-                playNote(note, now + index * 0.5, 0.8);
-            });
-            
-            setTimeout(playMelody, 8000); // Repeat every 8 seconds
-        };
+        const track = this.musicTracks[this.currentMusicIndex];
+        this.backgroundMusic = new Audio(track);
+        this.backgroundMusic.volume = 0.3; // Set volume to 30%
+        this.backgroundMusic.loop = false; // Don't loop individual tracks
         
-        // Start after a short delay
-        setTimeout(playMelody, 1000);
+        // When one track ends, play the next
+        this.backgroundMusic.addEventListener('ended', () => {
+            this.currentMusicIndex++;
+            this.loadAndPlayMusic();
+        });
+        
+        // Handle errors
+        this.backgroundMusic.addEventListener('error', (e) => {
+            console.log('Error loading music:', e);
+            this.currentMusicIndex++;
+            setTimeout(() => this.loadAndPlayMusic(), 1000); // Wait before retrying
+        });
+        
+        // Start playing
+        this.backgroundMusic.play().catch(e => {
+            console.log('Error playing music:', e);
+            // Try next track if this one fails
+            this.currentMusicIndex++;
+            setTimeout(() => this.loadAndPlayMusic(), 1000); // Wait before retrying
+        });
     }
 }
 
