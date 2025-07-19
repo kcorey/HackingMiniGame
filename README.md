@@ -1,6 +1,6 @@
-# Zen Match 3 - Peaceful Puzzle Game
+# Hacking Mini Game
 
-A vibrant, relaxing match 3 game designed for zen-like gameplay and whiling away time in a peaceful manner.
+A challenging hacking-themed puzzle game that can be played offline as a Progressive Web App (PWA).
 
 ## Features
 
@@ -23,11 +23,12 @@ A vibrant, relaxing match 3 game designed for zen-like gameplay and whiling away
 - **Sound Effects**: Satisfying audio feedback for matches, selections, and level ups
 - **Audio Controls**: Toggle music and sound effects independently
 
-### 📱 Mobile Optimized
-- **iPhone Focused**: Optimized specifically for iPhone with responsive design
+### 📱 Progressive Web App (PWA)
+- **Offline Play**: Works completely offline once installed
+- **Installable**: Can be installed on home screen like a native app
+- **Fast Loading**: Cached resources for instant startup
+- **Mobile Optimized**: Responsive design for all devices
 - **Touch Controls**: Smooth touch interactions with haptic-like feedback
-- **Landscape Support**: Adapts to device orientation
-- **No Zoom Issues**: Prevents accidental zooming during gameplay
 
 ### ✨ Visual Effects
 - **Particle Systems**: Colorful particles burst from matched blocks
@@ -75,17 +76,37 @@ A vibrant, relaxing match 3 game designed for zen-like gameplay and whiling away
 
 ## Getting Started
 
-Simply open `index.html` in a web browser on your iPhone or any modern mobile device. The game will automatically start and adapt to your screen size.
+### Web Browser
+Simply open `index.html` in a web browser on any modern device. The game will automatically start and adapt to your screen size.
 
-## Zen Philosophy
+### Install as PWA
+1. Open the game in Chrome, Edge, or Safari
+2. Look for the install prompt or use the browser menu
+3. Click "Install" to add to your home screen
+4. The game will now work offline!
 
-This game is designed for relaxation and mindfulness. There are no time limits, no lives to lose, and no pressure. Just enjoy the satisfying mechanics, beautiful visuals, and peaceful audio while you create colorful matches and watch the blocks cascade in harmony.
+### Offline Features
+- Once installed, the game works completely offline
+- All resources are cached for fast loading
+- Progress is saved locally
+- No internet connection required after installation
 
-Perfect for:
-- Meditation breaks
-- Stress relief
-- Mindful gaming
-- Passing time peacefully
-- Focus and concentration practice
+## Technical Features
 
-Enjoy your zen journey! 🧘‍♀️✨
+- **Service Worker**: Handles offline caching and network requests
+- **Web App Manifest**: Enables installation and app-like experience
+- **Web Audio API**: High-quality procedural audio
+- **CSS Grid**: Responsive layout system
+- **Touch Events**: Optimized for mobile devices
+- **Particle Effects**: Dynamic visual feedback
+- **Progressive Enhancement**: Works on older browsers
+
+## PWA Features
+
+- **Offline First**: Works without internet connection
+- **Fast Loading**: Cached resources load instantly
+- **Installable**: Add to home screen like a native app
+- **Background Sync**: Handles offline actions when connection returns
+- **Push Notifications**: Ready for future notification features
+
+Enjoy your hacking adventure! 🎮✨

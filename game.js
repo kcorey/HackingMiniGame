@@ -166,25 +166,68 @@ class ZenMatch3 {
     }
     
     swapTiles(tile1, tile2) {
-        // Swap tiles in board
-        const temp = this.board[tile1.row][tile1.col];
-        this.board[tile1.row][tile1.col] = this.board[tile2.row][tile2.col];
-        this.board[tile2.row][tile2.col] = temp;
+        // Get the DOM elements for the tiles
+        const tile1Element = document.querySelector(`[data-row="${tile1.row}"][data-col="${tile1.col}"]`);
+        const tile2Element = document.querySelector(`[data-row="${tile2.row}"][data-col="${tile2.col}"]`);
         
-        // Check for matches
-        const matches = this.findMatches();
+        if (!tile1Element || !tile2Element) return;
         
-        if (matches.length > 0) {
-            this.playSound('match');
-            this.processMatches(matches);
-        } else {
-            // Swap back if no matches
-            this.board[tile2.row][tile2.col] = this.board[tile1.row][tile1.col];
-            this.board[tile1.row][tile1.col] = temp;
-            this.playSound('invalid');
-        }
+        // Store original positions
+        const rect1 = tile1Element.getBoundingClientRect();
+        const rect2 = tile2Element.getBoundingClientRect();
         
-        this.renderBoard();
+        // Calculate the distance to move
+        const deltaX = rect2.left - rect1.left;
+        const deltaY = rect2.top - rect1.top;
+        
+        // Add animation classes
+        tile1Element.classList.add('swapping');
+        tile2Element.classList.add('swapping');
+        
+        // Animate the swap
+        tile1Element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        tile2Element.style.transform = `translate(${-deltaX}px, ${-deltaY}px)`;
+        
+        // After animation completes, perform the actual swap
+        setTimeout(() => {
+            // Swap tiles in board
+            const temp = this.board[tile1.row][tile1.col];
+            this.board[tile1.row][tile1.col] = this.board[tile2.row][tile2.col];
+            this.board[tile2.row][tile2.col] = temp;
+            
+            // Reset transform and remove animation classes
+            tile1Element.style.transform = '';
+            tile2Element.style.transform = '';
+            tile1Element.classList.remove('swapping');
+            tile2Element.classList.remove('swapping');
+            
+            // Check for matches
+            const matches = this.findMatches();
+            
+            if (matches.length > 0) {
+                this.playSound('match');
+                this.processMatches(matches);
+            } else {
+                // Swap back if no matches
+                this.board[tile2.row][tile2.col] = this.board[tile1.row][tile1.col];
+                this.board[tile1.row][tile1.col] = temp;
+                this.playSound('invalid');
+                
+                // Animate the swap back
+                setTimeout(() => {
+                    tile1Element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                    tile2Element.style.transform = `translate(${-deltaX}px, ${-deltaY}px)`;
+                    
+                    setTimeout(() => {
+                        tile1Element.style.transform = '';
+                        tile2Element.style.transform = '';
+                        this.renderBoard();
+                    }, 300);
+                }, 100);
+            }
+            
+            this.renderBoard();
+        }, 300);
     }
     
     findMatches() {
@@ -245,12 +288,12 @@ class ZenMatch3 {
     }
     
     processMatches(matches) {
-        // Add matching animation
+        // Add matching animation and create particle effects
         matches.forEach(match => {
             const tile = document.querySelector(`[data-row="${match.row}"][data-col="${match.col}"]`);
             if (tile) {
                 tile.classList.add('matching');
-                this.createParticles(tile);
+                this.createDestructionParticles(tile);
             }
         });
         
@@ -281,7 +324,7 @@ class ZenMatch3 {
                     this.checkLevelUp();
                 }
             }, 300);
-        }, 600);
+        }, 300); // Reduced to 300ms for faster fade
         
         this.updateUI();
     }
@@ -410,19 +453,139 @@ class ZenMatch3 {
         }, 1000);
     }
     
+    createDestructionParticles(tile) {
+        const rect = tile.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        // Gradient color palette from bright red to orange to yellow to white
+        const colors = [
+            '#ff0000', // Bright red
+            '#ff1a00', '#ff3300', '#ff4d00', '#ff6600', // Red-orange
+            '#ff8000', '#ff9900', '#ffb300', '#ffcc00', // Orange
+            '#ffe600', '#ffff00', '#ffff1a', '#ffff33', // Yellow
+            '#ffff4d', '#ffff66', '#ffff80', '#ffff99', // Light yellow
+            '#ffffb3', '#ffffcc', '#ffffe6', '#ffffff'  // White
+        ];
+        
+        // Create 20+ particles with dynamic properties
+        for (let i = 0; i < 25; i++) {
+            const particle = document.createElement('div');
+            
+            // Random size between 2-8px
+            const size = Math.random() * 6 + 2;
+            
+            // Random color from gradient palette
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            // Random angle for outward burst (0-360 degrees)
+            const angle = Math.random() * Math.PI * 2;
+            
+            // Calculate tile size to limit particle distance to 0.8 of next block (80% of tile size)
+            const tileSize = rect.width; // Assuming square tiles
+            const maxDistance = tileSize * 0.8; // 80% of tile size
+            
+            // Random distance for burst (limited to maxDistance)
+            const distance = Math.random() * maxDistance + 16; // 16px minimum (80% of 20px)
+            
+            // Calculate final position
+            const finalX = Math.cos(angle) * distance;
+            const finalY = Math.sin(angle) * distance;
+            
+            // Random upward drift (proportional to distance)
+            const upwardDrift = Math.random() * (maxDistance * 0.3) + (maxDistance * 0.1);
+            
+            // Create unique animation name for each particle
+            const animationName = `destructionParticle_${Date.now()}_${i}`;
+            
+            // Apply inline styles for dynamic animation
+            Object.assign(particle.style, {
+                position: 'absolute',
+                left: centerX + 'px',
+                top: centerY + 'px',
+                width: size + 'px',
+                height: size + 'px',
+                backgroundColor: color,
+                borderRadius: '50%',
+                pointerEvents: 'none',
+                zIndex: '1000',
+                opacity: '1',
+                filter: 'blur(0px)',
+                transform: 'translate(-50%, -50%)',
+                animation: `${animationName} 0.8s ease-out forwards` // Slower animation
+            });
+            
+            // Add custom CSS animation with unique name
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes ${animationName} {
+                    0% {
+                        transform: translate(-50%, -50%) translate(0px, 0px);
+                        opacity: 1;
+                        filter: blur(0px);
+                    }
+                    20% {
+                        transform: translate(-50%, -50%) translate(${finalX * 0.2}px, ${finalY * 0.2 - upwardDrift * 0.2}px);
+                        opacity: 0.9;
+                        filter: blur(0.5px);
+                    }
+                    40% {
+                        transform: translate(-50%, -50%) translate(${finalX * 0.4}px, ${finalY * 0.4 - upwardDrift * 0.4}px);
+                        opacity: 0.7;
+                        filter: blur(1px);
+                    }
+                    60% {
+                        transform: translate(-50%, -50%) translate(${finalX * 0.6}px, ${finalY * 0.6 - upwardDrift * 0.6}px);
+                        opacity: 0.5;
+                        filter: blur(1.5px);
+                    }
+                    80% {
+                        transform: translate(-50%, -50%) translate(${finalX * 0.8}px, ${finalY * 0.8 - upwardDrift * 0.8}px);
+                        opacity: 0.3;
+                        filter: blur(2px);
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) translate(${finalX}px, ${finalY - upwardDrift}px);
+                        opacity: 0;
+                        filter: blur(3px);
+                    }
+                }
+            `;
+            
+            document.head.appendChild(style);
+            
+            // Add to particle container
+            document.getElementById('particle-container').appendChild(particle);
+            
+            // Remove particle and style after animation
+            setTimeout(() => {
+                particle.remove();
+                style.remove();
+            }, 800); // Match the animation duration
+        }
+    }
+    
     createParticles(tile) {
         const rect = tile.getBoundingClientRect();
         const colors = ['#ff6b6b', '#4ecdc4', '#feca57', '#ff9ff3', '#a8edea'];
         
-        for (let i = 0; i < 8; i++) {
+        // Create more particles for a more dramatic effect
+        for (let i = 0; i < 12; i++) {
             const particle = document.createElement('div');
             particle.className = 'particle';
             particle.style.left = (rect.left + rect.width / 2) + 'px';
             particle.style.top = (rect.top + rect.height / 2) + 'px';
-            particle.style.width = '6px';
-            particle.style.height = '6px';
+            particle.style.width = (Math.random() * 4 + 3) + 'px';
+            particle.style.height = (Math.random() * 4 + 3) + 'px';
             particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-            particle.style.transform = `translate(${(Math.random() - 0.5) * 100}px, ${(Math.random() - 0.5) * 100}px)`;
+            
+            // Random direction and distance for more natural crumbling
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 80 + 40;
+            const deltaX = Math.cos(angle) * distance;
+            const deltaY = Math.sin(angle) * distance;
+            
+            particle.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
             
             document.getElementById('particle-container').appendChild(particle);
             
