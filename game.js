@@ -108,22 +108,75 @@ class ZenMatch3 {
     
     renderBoard() {
         const gameBoard = document.getElementById('game-board');
+        
+        // Clear the board (only called at game start)
         gameBoard.innerHTML = '';
         
+        // Create tiles for all blocks
         for (let row = 0; row < this.boardSize; row++) {
             for (let col = 0; col < this.boardSize; col++) {
-                const tile = document.createElement('div');
-                tile.className = `tile ${this.board[row][col].class}`;
-                tile.dataset.row = row;
-                tile.dataset.col = col;
+                if (this.board[row][col] !== null) {
+                    const tile = document.createElement('div');
+                    tile.className = `tile ${this.board[row][col].class}`;
+                    tile.dataset.row = row;
+                    tile.dataset.col = col;
+                    
+                    tile.addEventListener('click', (e) => this.handleTileClick(e));
+                    tile.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        this.handleTileClick(e);
+                    });
+                    
+                    gameBoard.appendChild(tile);
+                }
+            }
+        }
+    }
+    
+    updateBoard() {
+        // Update existing tiles without recreating them - NEVER clear the DOM
+        const gameBoard = document.getElementById('game-board');
+        const existingTiles = gameBoard.querySelectorAll('.tile');
+        
+        // Create a map of existing tiles by position
+        const tileMap = new Map();
+        existingTiles.forEach(tile => {
+            const row = parseInt(tile.dataset.row);
+            const col = parseInt(tile.dataset.col);
+            tileMap.set(`${row},${col}`, tile);
+        });
+        
+        // Update or create tiles as needed
+        for (let row = 0; row < this.boardSize; row++) {
+            for (let col = 0; col < this.boardSize; col++) {
+                const key = `${row},${col}`;
+                const existingTile = tileMap.get(key);
                 
-                tile.addEventListener('click', (e) => this.handleTileClick(e));
-                tile.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.handleTileClick(e);
-                });
-                
-                gameBoard.appendChild(tile);
+                if (this.board[row][col] !== null) {
+                    if (existingTile) {
+                        // Update existing tile
+                        existingTile.className = `tile ${this.board[row][col].class}`;
+                    } else {
+                        // Create new tile
+                        const tile = document.createElement('div');
+                        tile.className = `tile ${this.board[row][col].class}`;
+                        tile.dataset.row = row;
+                        tile.dataset.col = col;
+                        
+                        tile.addEventListener('click', (e) => this.handleTileClick(e));
+                        tile.addEventListener('touchstart', (e) => {
+                            e.preventDefault();
+                            this.handleTileClick(e);
+                        });
+                        
+                        gameBoard.appendChild(tile);
+                    }
+                } else {
+                    // Remove tile if it exists and position is now empty
+                    if (existingTile) {
+                        existingTile.remove();
+                    }
+                }
             }
         }
     }
@@ -307,13 +360,19 @@ class ZenMatch3 {
         
         // Remove matched tiles after animation
         setTimeout(() => {
+            // Remove matched blocks from board
             matches.forEach(match => {
                 this.board[match.row][match.col] = null;
             });
             
+            // Apply gravity to board
             this.applyGravity();
+            
+            // Fill empty spaces
             this.fillEmptySpaces();
-            this.renderBoard();
+            
+            // Update board
+            this.updateBoard();
             
             // Check for more matches (cascade effect)
             setTimeout(() => {
@@ -323,13 +382,14 @@ class ZenMatch3 {
                 } else {
                     this.checkLevelUp();
                 }
-            }, 300);
-        }, 300); // Reduced to 300ms for faster fade
+            }, 100);
+        }, 300);
         
         this.updateUI();
     }
     
     applyGravity() {
+        // Simple gravity: move blocks down to fill empty spaces
         for (let col = 0; col < this.boardSize; col++) {
             // Collect non-null blocks from bottom to top
             const column = [];
@@ -346,10 +406,15 @@ class ZenMatch3 {
             
             // Place blocks from bottom
             for (let i = 0; i < column.length; i++) {
-                this.board[this.boardSize - 1 - i][col] = column[i];
+                const newRow = this.boardSize - 1 - i;
+                this.board[newRow][col] = column[i];
             }
         }
     }
+    
+
+    
+
     
     fillEmptySpaces() {
         const availableTypes = this.getAvailableBlockTypes();
