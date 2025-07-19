@@ -1,7 +1,15 @@
 class ZenMatch3 {
     constructor() {
         this.boardSize = 8;
-        this.board = [];
+        this.tileSize = 40; // 320px / 8 = 40px per tile
+        this.canvas = null;
+        this.ctx = null;
+        
+        // Two arrays for smooth transitions
+        this.boardA = []; // Current positions
+        this.boardB = []; // Target positions
+        this.currentBoard = 'A'; // Track which array is current
+        
         this.selectedTile = null;
         this.score = 0;
         this.matches = 0;
@@ -9,15 +17,16 @@ class ZenMatch3 {
         this.musicEnabled = true;
         this.soundEnabled = true;
         this.isPaused = false;
+        this.isAnimating = false;
         
         // Block types - unlock progressively
         this.blockTypes = [
-            { name: 'crystal', class: 'block-crystal', unlocked: true },
-            { name: 'flower', class: 'block-flower', unlocked: true },
-            { name: 'star', class: 'block-star', unlocked: true },
-            { name: 'moon', class: 'block-moon', unlocked: false },
-            { name: 'sun', class: 'block-sun', unlocked: false },
-            { name: 'heart', class: 'block-heart', unlocked: false }
+            { name: 'crystal', color: '#ff6b6b', unlocked: true },
+            { name: 'flower', color: '#4ecdc4', unlocked: true },
+            { name: 'star', color: '#feca57', unlocked: true },
+            { name: 'moon', color: '#a8edea', unlocked: false },
+            { name: 'sun', color: '#ff9a9e', unlocked: false },
+            { name: 'heart', color: '#ff6b9d', unlocked: false }
         ];
         
         this.audioContext = null;
@@ -30,14 +39,23 @@ class ZenMatch3 {
     }
     
     initializeGame() {
+        this.setupCanvas();
         this.createBoard();
         this.fillBoard();
-        this.renderBoard();
+        this.drawBoard();
         this.updateUI();
     }
     
+    setupCanvas() {
+        this.canvas = document.getElementById('game-board');
+        this.ctx = this.canvas.getContext('2d');
+        this.canvas.width = 320;
+        this.canvas.height = 320;
+    }
+    
     createBoard() {
-        this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
+        this.boardA = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
+        this.boardB = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
     }
     
     getAvailableBlockTypes() {
@@ -46,10 +64,11 @@ class ZenMatch3 {
     
     fillBoard() {
         const availableTypes = this.getAvailableBlockTypes();
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
         
         for (let row = 0; row < this.boardSize; row++) {
             for (let col = 0; col < this.boardSize; col++) {
-                if (this.board[row][col] === null) {
+                if (currentBoard[row][col] === null) {
                     let blockType;
                     let attempts = 0;
                     
@@ -58,18 +77,20 @@ class ZenMatch3 {
                         attempts++;
                     } while (attempts < 10 && this.wouldCreateMatch(row, col, blockType));
                     
-                    this.board[row][col] = blockType;
+                    currentBoard[row][col] = blockType;
                 }
             }
         }
     }
     
     wouldCreateMatch(row, col, blockType) {
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
+        
         // Check horizontal match
         let horizontalCount = 1;
         // Check left
         for (let c = col - 1; c >= 0; c--) {
-            if (this.board[row][c] && this.board[row][c].name === blockType.name) {
+            if (currentBoard[row][c] && currentBoard[row][c].name === blockType.name) {
                 horizontalCount++;
             } else {
                 break;
@@ -77,7 +98,7 @@ class ZenMatch3 {
         }
         // Check right
         for (let c = col + 1; c < this.boardSize; c++) {
-            if (this.board[row][c] && this.board[row][c].name === blockType.name) {
+            if (currentBoard[row][c] && currentBoard[row][c].name === blockType.name) {
                 horizontalCount++;
             } else {
                 break;
@@ -88,7 +109,7 @@ class ZenMatch3 {
         let verticalCount = 1;
         // Check up
         for (let r = row - 1; r >= 0; r--) {
-            if (this.board[r][col] && this.board[r][col].name === blockType.name) {
+            if (currentBoard[r][col] && currentBoard[r][col].name === blockType.name) {
                 verticalCount++;
             } else {
                 break;
@@ -96,7 +117,7 @@ class ZenMatch3 {
         }
         // Check down
         for (let r = row + 1; r < this.boardSize; r++) {
-            if (this.board[r][col] && this.board[r][col].name === blockType.name) {
+            if (currentBoard[r][col] && currentBoard[r][col].name === blockType.name) {
                 verticalCount++;
             } else {
                 break;
@@ -106,101 +127,81 @@ class ZenMatch3 {
         return horizontalCount >= 3 || verticalCount >= 3;
     }
     
-    renderBoard() {
-        const gameBoard = document.getElementById('game-board');
+    drawBoard() {
+        // Clear the canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Clear the board (only called at game start)
-        gameBoard.innerHTML = '';
+        // Draw background
+        this.ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Create tiles for all blocks
+        // Draw all blocks
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
+        
         for (let row = 0; row < this.boardSize; row++) {
             for (let col = 0; col < this.boardSize; col++) {
-                if (this.board[row][col] !== null) {
-                    const tile = document.createElement('div');
-                    tile.className = `tile ${this.board[row][col].class}`;
-                    tile.dataset.row = row;
-                    tile.dataset.col = col;
-                    
-                    tile.addEventListener('click', (e) => this.handleTileClick(e));
-                    tile.addEventListener('touchstart', (e) => {
-                        e.preventDefault();
-                        this.handleTileClick(e);
-                    });
-                    
-                    gameBoard.appendChild(tile);
+                if (currentBoard[row][col] !== null) {
+                    this.drawBlock(row, col, currentBoard[row][col]);
                 }
             }
         }
     }
     
-    updateBoard() {
-        // Update existing tiles without recreating them - NEVER clear the DOM
-        const gameBoard = document.getElementById('game-board');
-        const existingTiles = gameBoard.querySelectorAll('.tile');
+    drawBlock(row, col, blockType) {
+        const x = col * this.tileSize;
+        const y = row * this.tileSize;
         
-        // Create a map of existing tiles by position
-        const tileMap = new Map();
-        existingTiles.forEach(tile => {
-            const row = parseInt(tile.dataset.row);
-            const col = parseInt(tile.dataset.col);
-            tileMap.set(`${row},${col}`, tile);
-        });
+        // Check if this block is selected
+        const isSelected = this.selectedTile && this.selectedTile.row === row && this.selectedTile.col === col;
         
-        // Update or create tiles as needed
-        for (let row = 0; row < this.boardSize; row++) {
-            for (let col = 0; col < this.boardSize; col++) {
-                const key = `${row},${col}`;
-                const existingTile = tileMap.get(key);
-                
-                if (this.board[row][col] !== null) {
-                    if (existingTile) {
-                        // Update existing tile
-                        existingTile.className = `tile ${this.board[row][col].class}`;
-                    } else {
-                        // Create new tile
-                        const tile = document.createElement('div');
-                        tile.className = `tile ${this.board[row][col].class}`;
-                        tile.dataset.row = row;
-                        tile.dataset.col = col;
-                        
-                        tile.addEventListener('click', (e) => this.handleTileClick(e));
-                        tile.addEventListener('touchstart', (e) => {
-                            e.preventDefault();
-                            this.handleTileClick(e);
-                        });
-                        
-                        gameBoard.appendChild(tile);
-                    }
-                } else {
-                    // Remove tile if it exists and position is now empty
-                    if (existingTile) {
-                        existingTile.remove();
-                    }
-                }
-            }
+        // Draw block background
+        this.ctx.fillStyle = blockType.color;
+        this.ctx.fillRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
+        
+        // Draw block border
+        if (isSelected) {
+            this.ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            this.ctx.lineWidth = 3;
+        } else {
+            this.ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            this.ctx.lineWidth = 1;
         }
+        this.ctx.strokeRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
+        
+        // Draw block symbol
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '20px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        const symbols = {
+            'crystal': '💎',
+            'flower': '🌸',
+            'star': '⭐',
+            'moon': '🌙',
+            'sun': '☀️',
+            'heart': '💖'
+        };
+        
+        this.ctx.fillText(symbols[blockType.name], x + this.tileSize/2, y + this.tileSize/2);
     }
     
-    handleTileClick(event) {
+
+    
+    handleTileClick(row, col) {
         if (this.isPaused) return;
-        
-        const tile = event.target;
-        const row = parseInt(tile.dataset.row);
-        const col = parseInt(tile.dataset.col);
         
         if (this.selectedTile === null) {
             // First tile selection
             this.selectedTile = { row, col };
-            tile.classList.add('selected');
             this.playSound('select');
+            this.drawBoard(); // Redraw to show selection
         } else {
             // Second tile selection
-            const prevTile = document.querySelector('.tile.selected');
-            if (prevTile) prevTile.classList.remove('selected');
-            
             if (this.selectedTile.row === row && this.selectedTile.col === col) {
                 // Deselect same tile
                 this.selectedTile = null;
+                this.drawBoard();
                 return;
             }
             
@@ -209,6 +210,7 @@ class ZenMatch3 {
             }
             
             this.selectedTile = null;
+            this.drawBoard();
         }
     }
     
@@ -219,82 +221,45 @@ class ZenMatch3 {
     }
     
     swapTiles(tile1, tile2) {
-        // Get the DOM elements for the tiles
-        const tile1Element = document.querySelector(`[data-row="${tile1.row}"][data-col="${tile1.col}"]`);
-        const tile2Element = document.querySelector(`[data-row="${tile2.row}"][data-col="${tile2.col}"]`);
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
         
-        if (!tile1Element || !tile2Element) return;
+        // Swap tiles in board
+        const temp = currentBoard[tile1.row][tile1.col];
+        currentBoard[tile1.row][tile1.col] = currentBoard[tile2.row][tile2.col];
+        currentBoard[tile2.row][tile2.col] = temp;
         
-        // Store original positions
-        const rect1 = tile1Element.getBoundingClientRect();
-        const rect2 = tile2Element.getBoundingClientRect();
+        // Check for matches
+        const matches = this.findMatches();
         
-        // Calculate the distance to move
-        const deltaX = rect2.left - rect1.left;
-        const deltaY = rect2.top - rect1.top;
-        
-        // Add animation classes
-        tile1Element.classList.add('swapping');
-        tile2Element.classList.add('swapping');
-        
-        // Animate the swap
-        tile1Element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-        tile2Element.style.transform = `translate(${-deltaX}px, ${-deltaY}px)`;
-        
-        // After animation completes, perform the actual swap
-        setTimeout(() => {
-            // Swap tiles in board
-            const temp = this.board[tile1.row][tile1.col];
-            this.board[tile1.row][tile1.col] = this.board[tile2.row][tile2.col];
-            this.board[tile2.row][tile2.col] = temp;
+        if (matches.length > 0) {
+            this.playSound('match');
+            this.processMatches(matches);
+        } else {
+            // Swap back if no matches
+            const temp = currentBoard[tile1.row][tile1.col];
+            currentBoard[tile1.row][tile1.col] = currentBoard[tile2.row][tile2.col];
+            currentBoard[tile2.row][tile2.col] = temp;
             
-            // Reset transform and remove animation classes
-            tile1Element.style.transform = '';
-            tile2Element.style.transform = '';
-            tile1Element.classList.remove('swapping');
-            tile2Element.classList.remove('swapping');
-            
-            // Check for matches
-            const matches = this.findMatches();
-            
-            if (matches.length > 0) {
-                this.playSound('match');
-                this.processMatches(matches);
-            } else {
-                // Swap back if no matches
-                this.board[tile2.row][tile2.col] = this.board[tile1.row][tile1.col];
-                this.board[tile1.row][tile1.col] = temp;
-                this.playSound('invalid');
-                
-                // Animate the swap back
-                setTimeout(() => {
-                    tile1Element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                    tile2Element.style.transform = `translate(${-deltaX}px, ${-deltaY}px)`;
-                    
-                    setTimeout(() => {
-                        tile1Element.style.transform = '';
-                        tile2Element.style.transform = '';
-                        this.renderBoard();
-                    }, 300);
-                }, 100);
-            }
-            
-            this.renderBoard();
-        }, 300);
+            this.playSound('invalid');
+        }
+        
+        this.drawBoard();
     }
     
     findMatches() {
         const matches = [];
         const visited = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(false));
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
         
         // Find horizontal matches
         for (let row = 0; row < this.boardSize; row++) {
             for (let col = 0; col < this.boardSize - 2; col++) {
-                const currentType = this.board[row][col].name;
+                if (!currentBoard[row][col]) continue;
+                const currentType = currentBoard[row][col].name;
                 let matchLength = 1;
                 
                 for (let c = col + 1; c < this.boardSize; c++) {
-                    if (this.board[row][c].name === currentType) {
+                    if (currentBoard[row][c] && currentBoard[row][c].name === currentType) {
                         matchLength++;
                     } else {
                         break;
@@ -315,11 +280,12 @@ class ZenMatch3 {
         // Find vertical matches
         for (let col = 0; col < this.boardSize; col++) {
             for (let row = 0; row < this.boardSize - 2; row++) {
-                const currentType = this.board[row][col].name;
+                if (!currentBoard[row][col]) continue;
+                const currentType = currentBoard[row][col].name;
                 let matchLength = 1;
                 
                 for (let r = row + 1; r < this.boardSize; r++) {
-                    if (this.board[r][col].name === currentType) {
+                    if (currentBoard[r][col] && currentBoard[r][col].name === currentType) {
                         matchLength++;
                     } else {
                         break;
@@ -341,15 +307,6 @@ class ZenMatch3 {
     }
     
     processMatches(matches) {
-        // Add matching animation and create particle effects
-        matches.forEach(match => {
-            const tile = document.querySelector(`[data-row="${match.row}"][data-col="${match.col}"]`);
-            if (tile) {
-                tile.classList.add('matching');
-                this.createDestructionParticles(tile);
-            }
-        });
-        
         // Calculate score
         const matchScore = matches.length * 10 + (matches.length > 3 ? (matches.length - 3) * 5 : 0);
         this.score += matchScore;
@@ -358,11 +315,17 @@ class ZenMatch3 {
         // Show score popup
         this.showScorePopup(matchScore);
         
+        // Create explosion particles for each matched block
+        matches.forEach(match => {
+            this.createExplosionParticles(match.row, match.col);
+        });
+        
         // Remove matched tiles after animation
         setTimeout(() => {
             // Remove matched blocks from board
+            const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
             matches.forEach(match => {
-                this.board[match.row][match.col] = null;
+                currentBoard[match.row][match.col] = null;
             });
             
             // Apply gravity to board
@@ -371,8 +334,8 @@ class ZenMatch3 {
             // Fill empty spaces
             this.fillEmptySpaces();
             
-            // Update board
-            this.updateBoard();
+            // Redraw board
+            this.drawBoard();
             
             // Check for more matches (cascade effect)
             setTimeout(() => {
@@ -390,24 +353,26 @@ class ZenMatch3 {
     
     applyGravity() {
         // Simple gravity: move blocks down to fill empty spaces
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
+        
         for (let col = 0; col < this.boardSize; col++) {
             // Collect non-null blocks from bottom to top
             const column = [];
             for (let row = this.boardSize - 1; row >= 0; row--) {
-                if (this.board[row][col] !== null) {
-                    column.push(this.board[row][col]);
+                if (currentBoard[row][col] !== null) {
+                    column.push(currentBoard[row][col]);
                 }
             }
             
             // Clear column
             for (let row = 0; row < this.boardSize; row++) {
-                this.board[row][col] = null;
+                currentBoard[row][col] = null;
             }
             
             // Place blocks from bottom
             for (let i = 0; i < column.length; i++) {
                 const newRow = this.boardSize - 1 - i;
-                this.board[newRow][col] = column[i];
+                currentBoard[newRow][col] = column[i];
             }
         }
     }
@@ -418,12 +383,13 @@ class ZenMatch3 {
     
     fillEmptySpaces() {
         const availableTypes = this.getAvailableBlockTypes();
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
         
         for (let col = 0; col < this.boardSize; col++) {
             for (let row = 0; row < this.boardSize; row++) {
-                if (this.board[row][col] === null) {
+                if (currentBoard[row][col] === null) {
                     const blockType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
-                    this.board[row][col] = blockType;
+                    currentBoard[row][col] = blockType;
                 }
             }
         }
@@ -472,16 +438,17 @@ class ZenMatch3 {
     addNewBlocksToBoard() {
         const availableTypes = this.getAvailableBlockTypes();
         const newType = availableTypes[availableTypes.length - 1];
+        const currentBoard = this.currentBoard === 'A' ? this.boardA : this.boardB;
         
         // Replace some random blocks with the new type
         const replacements = Math.min(8, Math.floor(this.boardSize * this.boardSize * 0.1));
         for (let i = 0; i < replacements; i++) {
             const row = Math.floor(Math.random() * this.boardSize);
             const col = Math.floor(Math.random() * this.boardSize);
-            this.board[row][col] = newType;
+            currentBoard[row][col] = newType;
         }
         
-        this.renderBoard();
+        this.drawBoard();
     }
     
     showUnlockMessage(message) {
@@ -660,6 +627,100 @@ class ZenMatch3 {
         }
     }
     
+    createExplosionParticles(row, col) {
+        console.log(`Creating explosion particles for block at row ${row}, col ${col}`);
+        
+        // Get canvas position relative to the page
+        const canvasRect = this.canvas.getBoundingClientRect();
+        
+        // Calculate block center position on canvas
+        const x = col * this.tileSize + this.tileSize / 2;
+        const y = row * this.tileSize + this.tileSize / 2;
+        
+        // Convert to page coordinates
+        const pageX = canvasRect.left + x;
+        const pageY = canvasRect.top + y;
+        
+        console.log(`Canvas position: ${canvasRect.left}, ${canvasRect.top}`);
+        console.log(`Block center: ${x}, ${y}`);
+        console.log(`Page position: ${pageX}, ${pageY}`);
+        
+        // Color gradient from red to orange to yellow to white
+        const colors = ['#ff0000', '#ff4400', '#ff8800', '#ffcc00', '#ffff00', '#ffff44', '#ffff88', '#ffffff'];
+        
+        // Create 20 particles for each block
+        for (let i = 0; i < 20; i++) {
+            const particle = document.createElement('div');
+            
+            // Random size between 2 and 6 pixels
+            const size = Math.random() * 4 + 2;
+            particle.style.width = size + 'px';
+            particle.style.height = size + 'px';
+            
+            // Random color from the gradient
+            particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            // Position at block center on page
+            particle.style.left = pageX + 'px';
+            particle.style.top = pageY + 'px';
+            
+            // Random movement - particles rise slightly but never more than 0.8 block size
+            const maxRise = this.tileSize * 0.8 * 2; // Double the rise distance
+            const riseDistance = Math.random() * maxRise;
+            const horizontalDistance = (Math.random() - 0.5) * this.tileSize * 1.2; // Double the horizontal spread
+            
+            // Random angle for the rise direction
+            const angle = Math.random() * Math.PI * 2;
+            const deltaX = Math.cos(angle) * horizontalDistance;
+            const deltaY = -riseDistance; // Negative for upward movement
+            
+            // Create unique animation name for each particle
+            const animationName = `explosionParticle_${Date.now()}_${i}`;
+            
+            // Apply inline styles for dynamic animation
+            Object.assign(particle.style, {
+                position: 'absolute',
+                borderRadius: '50%',
+                pointerEvents: 'none',
+                zIndex: '1000',
+                opacity: '1',
+                transform: 'translate(-50%, -50%)',
+                animation: `${animationName} 1.5s ease-out forwards`
+            });
+            
+            // Add custom CSS animation with unique name
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes ${animationName} {
+                    0% {
+                        transform: translate(-50%, -50%) translate(0px, 0px);
+                        opacity: 1;
+                    }
+                    50% {
+                        transform: translate(-50%, -50%) translate(${deltaX * 0.5}px, ${deltaY * 0.5}px);
+                        opacity: 0.8;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) translate(${deltaX}px, ${deltaY}px);
+                        opacity: 0;
+                    }
+                }
+            `;
+            
+            document.head.appendChild(style);
+            
+            document.getElementById('particle-container').appendChild(particle);
+            
+            // Remove particle and style after animation
+            setTimeout(() => {
+                particle.remove();
+                style.remove();
+            }, 1500);
+        }
+        
+        console.log(`Created ${20} explosion particles`);
+    }
+    
     updateUI() {
         document.getElementById('score').textContent = this.score;
         document.getElementById('matches').textContent = this.matches;
@@ -683,6 +744,13 @@ class ZenMatch3 {
     }
     
     setupEventListeners() {
+        // Canvas click handling
+        this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.handleCanvasClick(e);
+        });
+        
         document.getElementById('pause-btn').addEventListener('click', () => {
             this.isPaused = !this.isPaused;
             document.getElementById('pause-btn').textContent = this.isPaused ? '▶️' : '⏸️';
@@ -718,6 +786,21 @@ class ZenMatch3 {
             }
             lastTouchEnd = now;
         }, false);
+    }
+    
+    handleCanvasClick(event) {
+        if (this.isPaused || this.isAnimating) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        const col = Math.floor(x / this.tileSize);
+        const row = Math.floor(y / this.tileSize);
+        
+        if (col >= 0 && col < this.boardSize && row >= 0 && row < this.boardSize) {
+            this.handleTileClick(row, col);
+        }
     }
     
     createAudioContext() {
